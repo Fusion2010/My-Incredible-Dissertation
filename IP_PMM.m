@@ -1,4 +1,5 @@
-function [x,y,z,opt,iter] = IP_PMM(c,A,Q,b,free_variables,tol,maxit,pc,printlevel)
+function [x,y,z,opt,iter, f_list, elapsed_times] = IP_PMM(c,A,Q,b,free_variables,tol,maxit,pc,printlevel, ...
+    m_eva, n_eva, x_eva, C, d, epsilon, fopt, plotting)
 % ==================================================================================================================== %
 % This function is an Interior Point-Proximal Method of Multipliers, suitable for solving linear and convex quadratic
 % programming problems. The method takes as input a problem of the following form:
@@ -150,6 +151,11 @@ no_dual_update = 0;   % Primal infeasibility detection counter.
 no_primal_update = 0; % Dual infeasibility detection counter.
 reg_limit = max(5*tol*(1/max(norm(A,'inf')^2,norm(Q,'inf')^2)),5*10^(-10)); % Controlled perturbation.
 % ==================================================================================================================== %
+elapsed_times = []; 
+f_list = [];
+
+% Start timer
+tic; 
 
 while (iter < maxit)
 % -------------------------------------------------------------------------------------------------------------------- %
@@ -197,7 +203,7 @@ while (iter < maxit)
         break;
     end
     % ================================================================================================================ %
-    iter = iter+1;
+    iter = iter+1; 
     % ================================================================================================================ %
     % Avoid the possibility of converging to a local minimum -> Decrease the minimum regularization value.
     % ---------------------------------------------------------------------------------------------------------------- %
@@ -362,7 +368,12 @@ while (iter < maxit)
         mu_rate = abs((mu-mu_prev)/max(mu,mu_prev));
     end
     % ================================================================================================================ %
-    
+    % Plotting and Evaluation
+    elapsed_times = [elapsed_times, toc]; 
+
+    [~, ~, f_opt_IPPMM] = Displayer(m_eva, n_eva, x, C, d, epsilon); 
+    f_list = [f_list, f_opt_IPPMM]; 
+
     % ================================================================================================================ %
     % Computing the new non-regularized residuals. If the overall error is decreased, for the primal and dual 
     % residuals, we accept the new estimates for the Lagrange multipliers and primal optimal solution respectively.
@@ -414,6 +425,19 @@ while (iter < maxit)
     output(pl,iter,pres_inf,dres_inf,mu,sigma,alpha_x,alpha_z);
     % ================================================================================================================ %
 end % while (iter < maxit)
+
+if plotting
+
+    figure;
+    plot(elapsed_times, f_list, 'blue', 'LineWidth', 2); 
+    hold on; 
+    plot(elapsed_times, fopt * ones(size(it_list)), "r--", 'LineWidth', 2)
+    title('Interior Point Method of Multipliers');
+    xlabel('Iteration');
+    ylabel('Objective Value');
+    legend('Objective Value', 'fopt', 'Location', 'Best');
+    hold off;
+end
 
 % The IPM has terminated because the solution accuracy is reached or the maximum number 
 % of iterations is exceeded, or the problem under consideration is infeasible. Print result.  
