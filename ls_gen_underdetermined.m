@@ -1,4 +1,4 @@
-function [b, A, xopt, fvalOpt] = ls_gen_underdetermined(n, m, k, tau, S_B, S_N, theta, gamma, opt_gen)
+function [b, A, xopt, fvalOpt] = ls_gen_underdetermined(n, m, k, tau, S_B, S_N, theta, gamma, opt_gen, sparse_control)
 % This script generates data (A,b,xopt) such that:
 %                xopt := argmin tau*||x||_1 + 0.5||Ax-b||_2^2.
 %
@@ -44,18 +44,79 @@ function [b, A, xopt, fvalOpt] = ls_gen_underdetermined(n, m, k, tau, S_B, S_N, 
 % If n=2^20 and m=n/2^3, then 190 MB are required approximately.
 
 %% Create a composition of Givens rotations.
-ct = cos(theta);
-st = sin(theta);
-R = [
-     ct  -st
-     st   ct
-    ];
-Rt = R';
+if sparse_control == 0
+    ct = cos(theta);
+    st = sin(theta);
+    R = [
+         ct  -st
+         st   ct
+        ];
+    Rt = R';
+    
+    Gt_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(Rt));
+    l_G_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
+    Gt_N = kron(sparse(1:(n-m)/2,1:(n-m)/2,ones((n-m)/2,1),(n-m)/2,(n-m)/2),sparse(Rt));
+    l_G_N = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
+ 
+else
+    ct = cos(theta);
+    st = sin(theta);
 
-Gt_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(Rt));
-l_G_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
-Gt_N = kron(sparse(1:(n-m)/2,1:(n-m)/2,ones((n-m)/2,1),(n-m)/2,(n-m)/2),sparse(Rt));
-l_G_N = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
+    l_G_B_1 = speye(m); 
+    Gt_B_1 = speye(m); 
+    l_G_N_1 = speye(n - m);
+    Gt_N_1 = speye(n - m); 
+    
+    l_G_B = speye(m); 
+    Gt_B = speye(m); 
+    l_G_N = speye(n - m);
+    Gt_N = speye(n - m);
+    
+    % This is only for m = n / 2
+    i_1 = randi([1, (n - m) / 2]); 
+    j_1 = randi([(n - m) / 2 + 1, n - m]);
+    
+    for i = 1:sparse_control
+        l_G_B_1(i_1, i_1) = ct; 
+        l_G_B_1(j_1, j_1) = ct; 
+        l_G_B_1(i_1, j_1) = st; 
+        l_G_B_1(j_1, i_1) = -st; 
+    
+        Gt_B_1(i_1, i_1) = ct; 
+        Gt_B_1(j_1, j_1) = ct; 
+        Gt_B_1(i_1, j_1) = -st; 
+        Gt_B_1(j_1, i_1) = st; 
+    
+        l_G_N_1(i_1, i_1) = ct; 
+        l_G_N_1(j_1, j_1) = ct; 
+        l_G_N_1(i_1, j_1) = st; 
+        l_G_N_1(j_1, i_1) = -st;
+    
+        Gt_N_1(i_1, i_1) = ct; 
+        Gt_N_1(j_1, j_1) = ct; 
+        Gt_N_1(i_1, j_1) = -st; 
+        Gt_N_1(j_1, i_1) = st; 
+
+        if i_1 < (n - m) / 2
+            i_1 = i_1 + 1; 
+        else
+            i_1 = i_1 - 1; 
+        end
+
+        if j_1 < (n - m) 
+            j_1 = j_1 + 1; 
+        else
+            j_1 = j_1 - 1; 
+        end
+
+        l_G_B = l_G_B * l_G_B_1 ; 
+        Gt_B = Gt_B * Gt_B_1 ;  
+        l_G_N = l_G_N * l_G_N_1; 
+        Gt_N = Gt_N * Gt_N_1;  
+    
+    end
+
+end
 
 %% Create the optimal solution xopt.
 % We relax the cardinality constraint in Procedure OsGen3 in Section 6 in 
@@ -98,13 +159,14 @@ if (opt_gen == 0)
     % Choose a subgradient of the l1-norm at point xopt
     sub_g = rand(m,1);
     sub_g(idx(1:k)) = sign(xopt(idx(1:k)));
-    
+
+    B = sparse(1:m,1:m,S_B,m,m); 
     % Create permutation matrix for B
     P_B = speye( m );
     P_B = P_B(randperm(m),:);
-    
     B = P_B*l_G_B*P_B*sparse(1:m,1:m,S_B,m,m)*Gt_B;
-
+    
+    
     %e = tau*((Gt_B*sub_g)./S_B);
     e = P_B*l_G_B*P_B*sparse(1:m,1:m,1./S_B,m,m)*Gt_B*sub_g;
     e = tau*e;
@@ -121,10 +183,11 @@ else
         end
     end
     
+    B = sparse(1:m,1:m,S_B,m,m); 
+
     % Create permutation matrix for B
     P_B = speye( m );
     P_B = P_B(randperm(m),:);
-    
     B = P_B*l_G_B*P_B*sparse(1:m,1:m,S_B,m,m)*Gt_B;
 
     %e = tau*((Gt_B*sub_g)./S_B);
@@ -153,7 +216,7 @@ else
     
     N = l_G_N*[sparse(1:m,1:m,S_N,m,m),sparse(m,n-2*m)]*(P_N*Gt_N*P_N);
     temp = abs(N'*e);
-    temp_max = max(temp);
+    temp_max = max(temp); 
     tauNte = zeros(n-m,1);
     idx = temp ~= 0;
     l_idx = sum(idx);

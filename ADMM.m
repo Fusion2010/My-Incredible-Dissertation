@@ -60,7 +60,7 @@ function [r, omega, y, elapsed_times, ob_list] = ADMM(C, r_init, omega_init, ...
 
         fprintf('Minimun of dual and primal gap at %d iteration is %f\n', it, min_gap);
         
-        if ~plotting
+        if (~plotting)
             obj1 = norm(C * omega + d, 2)^2/2;
             obj2 = norm(omega, 1) * epsilon;
             elapsed_times(it) = toc;            
