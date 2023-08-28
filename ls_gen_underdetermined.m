@@ -30,6 +30,10 @@ function [b, A, xopt, fvalOpt] = ls_gen_underdetermined(n, m, k, tau, S_B, S_N, 
 %      of [1]
 %   gamma: a parameter that controls the length of the optimal solution, 
 %      see procedure OsGen3 in Section 6.0 in [1]
+%   opt_gen: Choose the optimal solution generator: If opt_gen == 0, then
+%   OsGen3 will be applied; Else, OsGen1 will be used
+%   sparse_control: This is an indicator that how many Givens Rotation
+%   Matrces will be multiplied; By default, only one will be used
 %
 % Output: 
 %
@@ -57,7 +61,7 @@ if sparse_control == 0
     l_G_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
     Gt_N = kron(sparse(1:(n-m)/2,1:(n-m)/2,ones((n-m)/2,1),(n-m)/2,(n-m)/2),sparse(Rt));
     l_G_N = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
- 
+% Control the sparsity if sparse_control is not assigned by 0
 else
     ct = cos(theta);
     st = sin(theta);
@@ -72,7 +76,6 @@ else
     l_G_N = speye(n - m);
     Gt_N = speye(n - m);
     
-    % This is only for m = n / 2
     i_1 = randi([1, (n - m) / 2]); 
     j_1 = randi([(n - m) / 2 + 1, n - m]);
     
@@ -175,6 +178,7 @@ else
     sub_g = zeros(m, 1);
     for i = 1:m
         if xopt(i) == 0
+            % For promising well-conditioned solution
             sub_g(i) = 0.875 + (0.125 * rand()); 
         elseif xopt(i) > 0
             sub_g(i) = 1; 

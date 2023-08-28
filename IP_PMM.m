@@ -1,5 +1,5 @@
 function [x,y,z,opt,iter, f_list, elapsed_times] = IP_PMM(c,A,Q,b,free_variables,tol,maxit,pc,printlevel, ...
-    m_eva, n_eva, x_eva, C, d, epsilon, fopt, plotting)
+    m_eva, n_eva, C, d, epsilon, fopt, plotting)
 % ==================================================================================================================== %
 % This function is an Interior Point-Proximal Method of Multipliers, suitable for solving linear and convex quadratic
 % programming problems. The method takes as input a problem of the following form:
@@ -28,6 +28,8 @@ function [x,y,z,opt,iter, f_list, elapsed_times] = IP_PMM(c,A,Q,b,free_variables
 %                                                              0: turn off iteration output
 %                                                              1: print primal and dual residual and duality measure
 %                                                              2: print centering parameter and step length
+% Rest of the parameter is to help plot: remain unchanged. 
+% 
 % OUTPUT: [x,y,z,opt,iter], where:
 %         x: primal solution
 %         y: Lagrange multiplier vector
