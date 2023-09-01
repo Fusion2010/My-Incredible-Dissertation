@@ -47,78 +47,65 @@ function [b, A, xopt, fvalOpt] = ls_gen_underdetermined(n, m, k, tau, S_B, S_N, 
 % For example, if n=2^14 and m=2*n, then 3 MBs are required approximately. 
 % If n=2^20 and m=n/2^3, then 190 MB are required approximately.
 
-%% Create a composition of Givens rotations.
-if sparse_control == 0
-    ct = cos(theta);
-    st = sin(theta);
-    R = [
-         ct  -st
-         st   ct
-        ];
-    Rt = R';
-    
-    Gt_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(Rt));
-    l_G_B = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
-    Gt_N = kron(sparse(1:(n-m)/2,1:(n-m)/2,ones((n-m)/2,1),(n-m)/2,(n-m)/2),sparse(Rt));
-    l_G_N = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
-% Control the sparsity if sparse_control is not assigned by 0
-else
-    ct = cos(theta);
-    st = sin(theta);
+%% Create a composition of Givens rotations: Sparsity Control
 
-    l_G_B_1 = speye(m); 
-    Gt_B_1 = speye(m); 
-    l_G_N_1 = speye(n - m);
-    Gt_N_1 = speye(n - m); 
-    
-    l_G_B = speye(m); 
-    Gt_B = speye(m); 
-    l_G_N = speye(n - m);
-    Gt_N = speye(n - m);
-    
-    i_1 = randi([1, (n - m) / 2]); 
-    j_1 = randi([(n - m) / 2 + 1, n - m]);
-    
-    for i = 1:sparse_control
-        l_G_B_1(i_1, i_1) = ct; 
-        l_G_B_1(j_1, j_1) = ct; 
-        l_G_B_1(i_1, j_1) = st; 
-        l_G_B_1(j_1, i_1) = -st; 
-    
-        Gt_B_1(i_1, i_1) = ct; 
-        Gt_B_1(j_1, j_1) = ct; 
-        Gt_B_1(i_1, j_1) = -st; 
-        Gt_B_1(j_1, i_1) = st; 
-    
-        l_G_N_1(i_1, i_1) = ct; 
-        l_G_N_1(j_1, j_1) = ct; 
-        l_G_N_1(i_1, j_1) = st; 
-        l_G_N_1(j_1, i_1) = -st;
-    
-        Gt_N_1(i_1, i_1) = ct; 
-        Gt_N_1(j_1, j_1) = ct; 
-        Gt_N_1(i_1, j_1) = -st; 
-        Gt_N_1(j_1, i_1) = st; 
+% Create Base
+Gt_B = speye(m, m); 
+l_G_B = speye(m, m); 
+Gt_N = speye(n - m, n - m); 
+l_G_N = speye(n - m, n - m);
 
-        if i_1 < (n - m) / 2
-            i_1 = i_1 + 1; 
-        else
-            i_1 = i_1 - 1; 
-        end
+% The First Rotation Matrix
+ct = cos(theta);
+st = sin(theta);
+R = [
+     ct  -st
+     st   ct
+    ];
+Rt = R';
 
-        if j_1 < (n - m) 
-            j_1 = j_1 + 1; 
-        else
-            j_1 = j_1 - 1; 
-        end
+Gt_B_1 = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(Rt));
+l_G_B_1 = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
+Gt_N_1 = kron(sparse(1:(n-m)/2,1:(n-m)/2,ones((n-m)/2,1),(n-m)/2,(n-m)/2),sparse(Rt));
+l_G_N_1 = kron(sparse(1:m/2,1:m/2,ones(m/2,1),m/2,m/2),sparse(R));
 
-        l_G_B = l_G_B * l_G_B_1 ; 
-        Gt_B = Gt_B * Gt_B_1 ;  
-        l_G_N = l_G_N * l_G_N_1; 
-        Gt_N = Gt_N * Gt_N_1;  
+% The Second Rotation Matrix
+last = sparse(1, m); 
+last(end) = 1; 
+
+
+Gt_B_tilde = [speye(1, m);
+    sparse(m - 2, 1),  kron(sparse(1:m/2 - 1,1:m/2 - 1, ones(m/2 - 1,1),m/2 - 1,m/2 - 1),sparse(Rt)), sparse(m - 2, 1);
+    last]; 
+l_G_B_tilde = [speye(1, m); 
+    sparse(m - 2, 1),  kron(sparse(1:m/2 - 1,1:m/2 - 1,ones(m/2 - 1,1),m/2 - 1,m/2 - 1),sparse(R)), sparse(m - 2, 1);
+    last]; 
+Gt_N_tilde = [speye(1, m); 
+    sparse(m - 2, 1), kron(sparse(1:(n-m)/2 - 1,1:(n-m)/2 - 1,ones((n-m)/2 - 1,1),(n-m)/2 - 1,(n-m)/2 - 1),sparse(Rt)), sparse(m - 2, 1);
+    last]; 
+
+l_G_N_tilde = [speye(1, m); 
+    sparse(m - 2, 1), kron(sparse(1:m/2- 1,1:m/2- 1,ones(m/2- 1,1),m/2- 1,m/2- 1),sparse(R)) , sparse(m - 2, 1);
+    last]; 
+
+for i = 1:sparse_control
     
+    if rem(i, 2) == 0 
+        B_left = l_G_B_tilde; 
+        B_right = Gt_B_tilde; 
+        N_left = l_G_N_tilde; 
+        N_right = Gt_N_tilde; 
+    else
+        B_left = l_G_B_1; 
+        B_right = Gt_B_1; 
+        N_left = l_G_N_1; 
+        N_right = Gt_N_1;
     end
-
+    
+    Gt_B = B_right * Gt_B; 
+    l_G_B = l_G_B * B_left; 
+    Gt_N = N_right * Gt_N; 
+    l_G_N = l_G_N * N_left; 
 end
 
 %% Create the optimal solution xopt.
