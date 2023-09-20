@@ -1,7 +1,6 @@
 # Dissertation
 
-This repository contains the codebase for my dissertation project, which focuses on implementing and exploring various optimization algorithms for solving a specific problem. The problem revolves around [briefly describe the problem here].
-
+This repository contains the codebase for my dissertation project, which focuses on implementing and exploring various optimization algorithms for solving a specific problem. 
 ## Files and Modules
 
 ### 1. `Automatic.m`
